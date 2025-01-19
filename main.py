@@ -3,7 +3,7 @@ from discord.ext import commands
 from database import Database
 from game import Wordle
 from image import board_image, score_graph
-from config import TOKEN
+from config import TOKEN, TEST_BOT_TOKEN
 
 intents = discord.Intents.all()
 bot = commands.Bot(command_prefix='!', intents=intents)
@@ -32,12 +32,14 @@ async def new_game(interaction:discord.Interaction):
         if pymongo_db.get_user_game(interaction.user.id): 
             pymongo_db.update_user_total_games(interaction.user.id, 
                                                pymongo_db.get_user_total_games(interaction.user.id) + 1)
+        
         pymongo_db.update_user_game(interaction.user.id, game)
+    
+
+    desc = f'''This is your Game No. {pymongo_db.get_user_total_games(interaction.user.id) + 1} \nUse /guess to enter a word!\nUse /help to learn how to play!'''
 
     embed = discord.Embed(title='WORDLE!',
-                          description=f''' This is your Game No. {pymongo_db.get_user_total_games(interaction.user.id) + 1}
-                          Use /guess to enter a word!
-                          Use /help to learn how to play!''',
+                          description=desc,
                           colour=0x1bb899)
 
     file = board_image(game.board, game.keyboard)
@@ -90,9 +92,9 @@ async def guess(interaction:discord.Interaction, word:str):
                 pymongo_db.update_user_game(interaction.user.id, game)
                 await interaction.response.send_message(embed=embed, file=file)
             else:
+                desc = f'''Use /guess to enter a word! \nUse /help to learn how to play!'''
                 embed = discord.Embed(title='WORDLE!',
-                                        description=f'''Use /guess to enter a word!
-                                        Use /help to learn how to play!''',
+                                        description=desc,
                                         colour=0x1bb899)
                 pymongo_db.update_user_game(interaction.user.id, game)
                 file = board_image(game.board, game.keyboard)
@@ -103,9 +105,9 @@ async def guess(interaction:discord.Interaction, word:str):
 async def profile(interaction:discord.Interaction):
     data = pymongo_db.find_user(interaction.user.id)
     if not data:
+        desc = f'''Play a game to access your statistics.\nUse /new_game to start a Wordle game!'''
         embed = discord.Embed(title='No statistics yet!',
-                              description=f'''Play a game to access your statistics.
-                              Use /new_game to start a Wordle game!''',
+                              description=desc,
                               colour=0xe05361)
         await interaction.response.send_message(embed=embed)
     else:
@@ -117,16 +119,14 @@ async def profile(interaction:discord.Interaction):
         for i in range(len(score)):
             avg_guesses += score[i] * (i + 1)
         avg_guesses /= total_wins
+        stats_desc = f'''🔹 Total Games: {total_games}\n🔹 Total Wins: {total_wins}\n🔹 Win Percentage: {(total_wins / total_games * 100):.2f}%\n🔹 Avg. Guesses Per Win: {avg_guesses:.2f}'''
     
         embed = discord.Embed(title='Profile',
                               description=f'User statistics for {interaction.user.name}...',
                               colour=0x1bb899)
         
         embed.add_field(name='Statistics',
-                        value=f'''🔹 Total Games: {total_games}
-                        🔹 Total Wins: {total_wins}
-                        🔹 Win Percentage: {(total_wins / total_games * 100):.2f}%
-                        🔹 Avg. Guesses Per Win: {avg_guesses:.2f}''',
+                        value=stats_desc,
                         inline=False)
         
         embed.add_field(name='Guess Distribution',
@@ -158,26 +158,26 @@ async def leaderboard(interaction:discord.Interaction):
                     break
         
         embed = discord.Embed(title='Server Leaderboard',
-                            description=f'Showing users with the most wins...',
-                            colour=0x1bb899)
+                              description=f'Showing users with the most wins...',
+                              colour=0x1bb899)
         
         for index, data in enumerate(leaderboard_copy):
             if data:
                 avg_guesses = 0
-                for i in range(len(data['score'])):
-                    avg_guesses += data['score'][i] * (i + 1)
-                avg_guesses /= sum(data['score'])
-                
+                if sum(data['score']) > 0:
+                    for i in range(len(data['score'])):
+                        avg_guesses += data['score'][i] * (i + 1)
+                    avg_guesses /= sum(data['score'])
+                leaderboard_desc = f'''Total Wins: {sum(data['score'])}\nTotal Games: {data['total_games']}\nAverage Guesses: {avg_guesses:.2f}'''
+
                 embed.add_field(name=f'#{index + 1} - {interaction.guild.get_member(data['_id'])}',
-                                value=f'''Total Wins: {sum(data['score'])}
-                                Total Games: {data['total_games']}
-                                Average Guesses: {avg_guesses:.2f}''',
+                                value=leaderboard_desc,
                                 inline=False)
             else: 
+                leaderboard_desc = f'''Total Wins: 0\nTotal Games: 0\nAverage Guesses: 0.00'''
+
                 embed.add_field(name=f'#{index + 1} - None',
-                                value=f'''Total Wins: 0
-                                Total Games: 0
-                                Average Guesses: 0.00''',
+                                value=leaderboard_desc,
                                 inline=False)
         
         await interaction.response.send_message(embed=embed)
@@ -188,23 +188,19 @@ async def help(interaction:discord.Interaction):
                           description=f'',
                           colour=0x1bb899)
     
+    help_desc = f'''You have 6 tries to guess a 5 letter word.\nThe colour of the tiles will change according to how close your guess was to the word.\nGreen tiles mean that the letter is in the word and in the correct spot.\nYellow tiles mean that the letter is in the word but is in the incorrect spot.\nGrey tiles mean that the letter is not found in the word.'''
+    
+    command_desc = f'''🔹 **/new_game** - Start a new game of Wordle!\n🔹 **/guess** - Guess a 5 letter word in your current Wordle game!\n🔹 **/profile** - View all your relevant user statistics!\n🔹 **/leaderboard** - View server leaderboards! (Only works in servers)\n🔹 **/help** - View instructions on how to use this bot!'''
+    
     embed.add_field(name='How to play',
-                    value=f'''You have 6 tries to guess a 5 letter word.
-                    The colour of the tiles will change according to how close your guess was to the word.
-                    Green tiles mean that the letter is in the word and in the correct spot.
-                    Yellow tiles mean that the letter is in the word but is in the incorrect spot.
-                    Grey tiles mean that the letter is not found in the word.''',
+                    value=help_desc,
                     inline=False)
     
     embed.add_field(name='Commands',
-                    value=f'''🔹 **/new_game** - Start a new game of Wordle!
-                    🔹 **/guess** - Guess a 5 letter word in your current Wordle game!
-                    🔹 **/profile** - View all your relevant user statistics!
-                    🔹 **/leaderboard** - View server leaderboards! (Only works in servers)
-                    🔹 **/help** - View instructions on how to use this bot!''',
+                    value=command_desc,
                     inline=False)
     
     await interaction.response.send_message(embed=embed)
     
 if __name__ == '__main__':
-    bot.run(TOKEN)
+    bot.run(TEST_BOT_TOKEN)
