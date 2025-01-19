@@ -1,13 +1,18 @@
 import discord
+import os
+from dotenv import load_dotenv
 from discord.ext import commands
 from database import Database
 from game import Wordle
 from image import board_image, score_graph
-from config import TOKEN, TEST_BOT_TOKEN
+
+load_dotenv('.env')
+TOKEN: str = os.getenv('TOKEN')
+PYMONGO_CONNECTION = os.getenv('PYMONGO_CONNECTION')
 
 intents = discord.Intents.all()
 bot = commands.Bot(command_prefix='!', intents=intents)
-pymongo_db = Database()
+pymongo_db = Database(PYMONGO_CONNECTION)
 
 @bot.event
 async def on_ready():
@@ -203,4 +208,4 @@ async def help(interaction:discord.Interaction):
     await interaction.response.send_message(embed=embed)
     
 if __name__ == '__main__':
-    bot.run(TEST_BOT_TOKEN)
+    bot.run(TOKEN)

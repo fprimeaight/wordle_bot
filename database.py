@@ -1,10 +1,9 @@
 from pymongo import MongoClient
-from config import PYMONGO_CONNECTION
 from pickle import loads, dumps
 
 class Database:
-    def __init__(self):
-        self.client = MongoClient(PYMONGO_CONNECTION)
+    def __init__(self, connection_token):
+        self.client = MongoClient(connection_token)
         self.db = self.client['discord_bot_db']
         self.users = self.db['users']
 
